@@ -13,6 +13,12 @@
 		6D434D8320888D3F00188680 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6D434D8220888D3F00188680 /* Assets.xcassets */; };
 		6D434D8620888D3F00188680 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6D434D8420888D3F00188680 /* LaunchScreen.storyboard */; };
 		6D434D8920888D3F00188680 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D434D8820888D3F00188680 /* main.m */; };
+		6D434D9D20888E6500188680 /* crc.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D434D9020888E6500188680 /* crc.cpp */; };
+		6D434D9E20888E6500188680 /* buffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D434D9420888E6500188680 /* buffer.cpp */; };
+		6D434D9F20888E6500188680 /* packet.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D434D9520888E6500188680 /* packet.cpp */; };
+		6D434DA020888E6500188680 /* VescController.m in Sources */ = {isa = PBXBuildFile; fileRef = 6D434D9A20888E6500188680 /* VescController.m */; };
+		6D434DA120888E6500188680 /* bldc_interface_uart.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D434D9B20888E6500188680 /* bldc_interface_uart.cpp */; };
+		6D434DA220888E6500188680 /* bldc_interface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6D434D9C20888E6500188680 /* bldc_interface.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +32,19 @@
 		6D434D8520888D3F00188680 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		6D434D8720888D3F00188680 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6D434D8820888D3F00188680 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		6D434D9020888E6500188680 /* crc.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = crc.cpp; sourceTree = "<group>"; };
+		6D434D9120888E6500188680 /* VescController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VescController.h; sourceTree = "<group>"; };
+		6D434D9220888E6500188680 /* bldc_interface.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = bldc_interface.h; sourceTree = "<group>"; };
+		6D434D9320888E6500188680 /* crc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = crc.h; sourceTree = "<group>"; };
+		6D434D9420888E6500188680 /* buffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = buffer.cpp; sourceTree = "<group>"; };
+		6D434D9520888E6500188680 /* packet.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = packet.cpp; sourceTree = "<group>"; };
+		6D434D9620888E6500188680 /* datatypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = datatypes.h; sourceTree = "<group>"; };
+		6D434D9720888E6500188680 /* buffer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = buffer.h; sourceTree = "<group>"; };
+		6D434D9820888E6500188680 /* bldc_interface_uart.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = bldc_interface_uart.h; sourceTree = "<group>"; };
+		6D434D9920888E6500188680 /* packet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = packet.h; sourceTree = "<group>"; };
+		6D434D9A20888E6500188680 /* VescController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = VescController.m; sourceTree = "<group>"; };
+		6D434D9B20888E6500188680 /* bldc_interface_uart.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bldc_interface_uart.cpp; sourceTree = "<group>"; };
+		6D434D9C20888E6500188680 /* bldc_interface.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = bldc_interface.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +77,7 @@
 		6D434D7820888D3D00188680 /* VESCApp */ = {
 			isa = PBXGroup;
 			children = (
+				6D434D8F20888E6500188680 /* VESCBit */,
 				6D434D7920888D3D00188680 /* AppDelegate.h */,
 				6D434D7A20888D3D00188680 /* AppDelegate.m */,
 				6D434D7C20888D3D00188680 /* ViewController.h */,
@@ -69,6 +89,26 @@
 				6D434D8820888D3F00188680 /* main.m */,
 			);
 			path = VESCApp;
+			sourceTree = "<group>";
+		};
+		6D434D8F20888E6500188680 /* VESCBit */ = {
+			isa = PBXGroup;
+			children = (
+				6D434D9020888E6500188680 /* crc.cpp */,
+				6D434D9220888E6500188680 /* bldc_interface.h */,
+				6D434D9320888E6500188680 /* crc.h */,
+				6D434D9420888E6500188680 /* buffer.cpp */,
+				6D434D9520888E6500188680 /* packet.cpp */,
+				6D434D9620888E6500188680 /* datatypes.h */,
+				6D434D9720888E6500188680 /* buffer.h */,
+				6D434D9820888E6500188680 /* bldc_interface_uart.h */,
+				6D434D9920888E6500188680 /* packet.h */,
+				6D434D9B20888E6500188680 /* bldc_interface_uart.cpp */,
+				6D434D9C20888E6500188680 /* bldc_interface.cpp */,
+				6D434D9120888E6500188680 /* VescController.h */,
+				6D434D9A20888E6500188680 /* VescController.m */,
+			);
+			path = VESCBit;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -141,8 +181,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6D434DA120888E6500188680 /* bldc_interface_uart.cpp in Sources */,
+				6D434D9D20888E6500188680 /* crc.cpp in Sources */,
+				6D434DA020888E6500188680 /* VescController.m in Sources */,
 				6D434D7E20888D3D00188680 /* ViewController.m in Sources */,
+				6D434D9E20888E6500188680 /* buffer.cpp in Sources */,
+				6D434D9F20888E6500188680 /* packet.cpp in Sources */,
 				6D434D8920888D3F00188680 /* main.m in Sources */,
+				6D434DA220888E6500188680 /* bldc_interface.cpp in Sources */,
 				6D434D7B20888D3D00188680 /* AppDelegate.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

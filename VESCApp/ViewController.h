@@ -7,8 +7,23 @@
 //
 
 #import <UIKit/UIKit.h>
+#import "VescController.h"
 
-@interface ViewController : UIViewController
+@import CoreBluetooth;
+
+@interface ViewController : UIViewController <CBCentralManagerDelegate, CBPeripheralDelegate>{
+    VescController *aVescController;
+    
+    CBCentralManager *_centralManager;
+    CBPeripheral *_peripheral;
+    NSMutableArray *_peripherals;
+    CBCharacteristic *txCharacteristic;
+    CBCharacteristic *rxCharacteristic;
+    
+    IBOutlet UILabel *lblVoltage;
+    IBOutlet UILabel *lblCurrent;
+    IBOutlet UILabel *lblTemperature;
+}
 
 
 @end
