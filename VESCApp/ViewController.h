@@ -22,6 +22,7 @@
     
     IBOutlet UILabel *lblVoltage;
     IBOutlet UILabel *lblCurrent;
+    IBOutlet UILabel *lblWatts;
     IBOutlet UILabel *lblTemperature;
 }
 

@@ -106,14 +106,18 @@
         //TX BleMini:    713D0003-503E-4C75-BA94-3148F18D941E
         //RX BleMini:    713D0002-503E-4C75-BA94-3148F18D941E
         
-        if ([aChar.UUID isEqual:[CBUUID UUIDWithString:@"713D0003-503E-4C75-BA94-3148F18D941E"]]) {
+        // BAUD HM-11    9600   //Flashed here http://www.hangar42.nl/ccloader
+        //TX HM-11:      FFE1
+        //RX HM-11:      FFE1
+        
+        if ([aChar.UUID isEqual:[CBUUID UUIDWithString:@"FFE1"]]) {
             NSLog(@"Found TX service: %@",aChar);
             txCharacteristic = aChar;
             if (rxCharacteristic != nil){
                 [self performSelector:@selector(doGetValues) withObject:nil afterDelay:0.3];
             }
         }
-        if ([aChar.UUID isEqual:[CBUUID UUIDWithString:@"713D0002-503E-4C75-BA94-3148F18D941E"]]) {
+        if ([aChar.UUID isEqual:[CBUUID UUIDWithString:@"FFE1"]]) {
             NSLog(@"Found RX service: %@",aChar);
             rxCharacteristic = aChar;
             [_peripheral setNotifyValue:YES forCharacteristic:rxCharacteristic];
@@ -157,7 +161,12 @@
                            thisData.temp_mos5,
                            thisData.temp_mos6,
                            thisData.temp_pcb];
-    lblCurrent.text = [NSString stringWithFormat:@"Current Input: %1.fA\nCurrent AVG: %1.fA",thisData.avgInputCurrent,thisData.avgMotorCurrent];
+    lblCurrent.text = [NSString stringWithFormat:@"Current Input: %1.fA\nCurrent AVG: %1.fA",
+                       thisData.avgInputCurrent,thisData.avgMotorCurrent];
+    
+    lblWatts.text = [NSString stringWithFormat:@"Watt : %.2fW\nWatt Charged: %.2fW"
+                     ,thisData.wattHours,thisData.wattHoursCharged];
+    
     lblVoltage.text = [NSString stringWithFormat:@"Voltage: %.1fv",thisData.inpVoltage];
 }
 
@@ -177,9 +186,8 @@
     [self presentViewController:alert animated:YES completion:nil];
 }
 -(void)doGetValues {
-    [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer * _Nonnull timer) {
+    [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer * _Nonnull timer) {
         NSLog(@"Get Values");
-        self->lblTemperature.text = self->lblCurrent.text = self->lblVoltage.text = @"";
         NSData *dataToSend = [self->aVescController dataForGetValues:COMM_GET_VALUES val:0];
         [self->_peripheral writeValue:dataToSend forCharacteristic:self->txCharacteristic type:CBCharacteristicWriteWithoutResponse];
     }];
@@ -192,7 +200,7 @@
     _centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
     _peripherals = [NSMutableArray array];
     aVescController = [[VescController alloc] init];
-    [aVescController dataForGetValues:0 val:0];
+    [aVescController dataForGetValues:0 val:0];    
 }
 -(void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];
