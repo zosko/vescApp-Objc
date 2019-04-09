@@ -1,16 +1,16 @@
 //
-//  VescController.m
-//  BeanVESC
+//  VESC.m
+//  Pedaless
 //
-//  Created by Ben Harraway on 13/09/2015.
-//  Copyright (c) 2015 Gourmet Pixel Ltd. All rights reserved.
+//  Created by Bosko Petreski on 4/19/18.
+//  Copyright © 2018 Bosko Petreski. All rights reserved.
 //
 
-#import "VescController.h"
+#import "VESC.h"
 
-@implementation VescController
+@implementation VESC
 
-// CRC Table
+#pragma mark - VESC Functions
 const uint16_t crc16_tab[] = { 0x0000, 0x1021, 0x2042, 0x3063, 0x4084,
     0x50a5, 0x60c6, 0x70e7, 0x8108, 0x9129, 0xa14a, 0xb16b, 0xc18c, 0xd1ad,
     0xe1ce, 0xf1ef, 0x1231, 0x0210, 0x3273, 0x2252, 0x52b5, 0x4294, 0x72f7,
@@ -41,110 +41,47 @@ const uint16_t crc16_tab[] = { 0x0000, 0x1021, 0x2042, 0x3063, 0x4084,
     0x0cc1, 0xef1f, 0xff3e, 0xcf5d, 0xdf7c, 0xaf9b, 0xbfba, 0x8fd9, 0x9ff8,
     0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0 };
 
-//- (void) SetCurrent:(double)val  {SendCommand(COMM_SET_CURRENT, val);}
-//- (void) SetRpm:(double)val	   {SendCommand(COMM_SET_RPM, val);}
-//- (void) SetDuty:(double)val     {SendCommand(COMM_SET_DUTY, val);}
-//- (void) SetBrake:(double)val    {SendCommand(COMM_SET_CURRENT_BRAKE, val);}
-//- (void) Release               {[self SetCurrent:0];}
-//- (void) FullBrake             {[self SetDuty:0];}
-//- (void) GetValues             {SendCommand(COMM_GET_VALUES, -1);}
-
-
+unsigned short crc16(unsigned char *buf, unsigned int len) {
+    unsigned int i;
+    unsigned short cksum = 0;
+    for (i = 0; i < len; i++) {
+        cksum = crc16_tab[(((cksum >> 8) ^ *buf++) & 0xFF)] ^ (cksum << 8);
+    }
+    return cksum;
+}
 int16_t buffer_get_int16(const uint8_t *buffer, int32_t *index) {
-    int16_t res =	((uint16_t) buffer[*index]) << 8 |
+    int16_t res =    ((uint16_t) buffer[*index]) << 8 |
     ((uint16_t) buffer[*index + 1]);
     *index += 2;
     return res;
 }
-
 int32_t buffer_get_int32(const uint8_t *buffer, int32_t *index) {
-    int32_t res =	((uint32_t) buffer[*index]) << 24 |
+    int32_t res =    ((uint32_t) buffer[*index]) << 24 |
     ((uint32_t) buffer[*index + 1]) << 16 |
     ((uint32_t) buffer[*index + 2]) << 8 |
     ((uint32_t) buffer[*index + 3]);
     *index += 4;
     return res;
 }
-
 float buffer_get_float16(const uint8_t *buffer, float scale, int32_t *index) {
     return (float)buffer_get_int16(buffer, index) / scale;
 }
-
 float buffer_get_float32(const uint8_t *buffer, float scale, int32_t *index) {
     return (float)buffer_get_int32(buffer, index) / scale;
 }
-
-uint16_t crc16(const uint8_t *buf, uint32_t len)
-{
-    uint32_t i;
-    uint16_t cksum = 0;
-    for (i = 0; i < len; i++)
-    {
-        cksum = crc16_tab[(((cksum >> 8) ^ *buf++) & 0xFF)] ^ (cksum << 8);
-    }
-    return cksum;
-}
-
-void buffer_append_uint16(uint8_t* buffer, uint16_t number, int32_t *index)
-{
+void buffer_append_uint16(uint8_t* buffer, uint16_t number, int32_t *index) {
     buffer[(*index)++] = number >> 8;
     buffer[(*index)++] = number;
 }
-
-void buffer_append_int32(uint8_t* buffer, int32_t number, int32_t *index)
-{
+void buffer_append_int32(uint8_t* buffer, int32_t number, int32_t *index) {
     buffer[(*index)++] = number >> 24;
     buffer[(*index)++] = number >> 16;
     buffer[(*index)++] = number >> 8;
     buffer[(*index)++] = number;
 }
 
-double roundDouble(double x)
-{
-    return x < 0.0 ? ceil(x - 0.5) : floor(x + 0.5);
-}
-
-void buffer_append_double32(uint8_t* buffer, double number, double scale, int32_t *index)
-{
-    buffer_append_int32(buffer, (int32_t)(roundDouble(number * scale)), index);
-}
-
-void WriteArray(uint8_t* arr, int32_t num)
-{
-//    for(int32_t i=0;i<num;i++) outputSerial.write(arr[i]);
-}
-
-
-- (NSData *) dataForCommand:(int)command val:(double)val {
-    unsigned char buff[10];
-    int32_t ind = 0;
-    
-    buff[ind++] = 2;
-    buff[ind++] = 5;
-    buff[ind++] = command;
-    
-    if(command == COMM_SET_RPM) {
-        buffer_append_int32(buff, (int32_t)val, &ind);
-        
-    } else {
-        double scale;
-        if(command == COMM_SET_DUTY) scale = 100000.0;
-        else scale = 1000;
-        
-        buffer_append_double32(buff, val, scale, &ind);
-    }
-    
-    uint16_t crc = crc16(buff + 2, 5);
-    buff[ind++] = crc >> 8;
-    buff[ind++] = crc;
-    
-    buff[ind++] = 3;
-    
-    NSData* data = [NSData dataWithBytes:(const void *)buff length:sizeof(buff)];
-    return data;
-}
-
-- (NSData *)dataForGetValues:(int)command val:(double)val {
+#pragma mark - VESC Helper
+-(NSData *)dataForGetValues{
     unsigned char buff[6];
     int32_t ind = 0;
     
@@ -158,19 +95,10 @@ void WriteArray(uint8_t* arr, int32_t num)
     buff[ind++] = crc;
     
     buff[ind++] = 3;
-    
-    // 214 @84 3
-    NSData* data = [NSData dataWithBytes:(const void *)buff length:sizeof(buff)];
+
+    NSData *data = [NSData dataWithBytes:(const void *)buff length:sizeof(buff)];
     return data;    
 }
-
-
-// Packet Processing....
-// Mostly from Vedder and RollingGecko - thanks guys!!!
-// www.vedder.se
-// https://github.com/RollingGecko/VescUartControl
-// Full credit to them
-// Horrible code and mistakes added by me!
 
 int counter = 0;
 int endMessage = 256;
@@ -179,15 +107,13 @@ uint8_t messageReceived[256];
 int lenPayload = 0;
 uint8_t payload[256];
 
-- (int) process_incoming_bytes:(NSData *)incomingData {
+-(int)process_incoming_bytes:(NSData *)incomingData {
     const uint8_t *bytes = incomingData.bytes;
     for (int i = 0; i < incomingData.length; i++) {
         messageReceived[counter++] = bytes[i];
         
         if (counter == 2) {//case if state of 'counter' with last read 1
-            
-            switch (messageReceived[0])
-            {
+            switch (messageReceived[0]){
                 case 2:
                     endMessage = messageReceived[1] + 5; //Payload size + 2 for sice + 3 for SRC and End.
                     lenPayload = messageReceived[1];
@@ -198,11 +124,9 @@ uint8_t payload[256];
                 default:
                     break;
             }
-            
         }
         
-        if (counter >= sizeof(messageReceived))
-        {
+        if (counter >= sizeof(messageReceived)){
             break;
         }
         
@@ -221,16 +145,15 @@ uint8_t payload[256];
     
     if (unpacked) {
         return lenPayload; //Message was read
-        
-    } else {
+    }
+    else {
         return 0; //No Message Read
     }
 }
-
 bool UnpackPayload(uint8_t* message, int lenMes, int lenPay) {
     uint16_t crcMessage = 0;
     uint16_t crcPayload = 0;
-    //Rebuild src:
+   
     crcMessage = message[lenMes - 3] << 8;
     crcMessage &= 0xFF00;
     crcMessage += message[lenMes - 2];
@@ -241,45 +164,39 @@ bool UnpackPayload(uint8_t* message, int lenMes, int lenPay) {
     
     if (crcPayload == crcMessage) {
         return true;
-    } else {
+    }
+    else {
         return false;
     }
 }
-
-- (struct bldcMeasure) ProcessReadPacket {
+-(mc_values)readPacket{
     COMM_PACKET_ID packetId;
     int32_t ind = 0;
-    struct bldcMeasure values;
-    
+    mc_values values;
     packetId = (COMM_PACKET_ID)payload[0];
 
     uint8_t payload2[256];
     memcpy(payload2, payload + 1, sizeof(payload)-1);
-    
-    switch (packetId)
-    {
+
+    switch (packetId){
         case COMM_GET_VALUES:
             ind = 0;
             
-            values.temp_mos1 = buffer_get_float16(payload2, 10.0, &ind);
-            values.temp_mos2 = buffer_get_float16(payload2, 10.0, &ind);
-            values.temp_mos3 = buffer_get_float16(payload2, 10.0, &ind);
-            values.temp_mos4 = buffer_get_float16(payload2, 10.0, &ind);
-            values.temp_mos5 = buffer_get_float16(payload2, 10.0, &ind);
-            values.temp_mos6 = buffer_get_float16(payload2, 10.0, &ind);
-            values.temp_pcb = buffer_get_float16(payload2, 10.0, &ind);
-
-            values.avgMotorCurrent = buffer_get_float32(payload2, 100.0, &ind);
-            values.avgInputCurrent = buffer_get_float32(payload2, 100.0, &ind);
-            values.dutyCycleNow = buffer_get_float16(payload2, 1000.0, &ind);
-            values.rpm = buffer_get_int32(payload2, &ind);
-            values.inpVoltage = buffer_get_float16(payload2, 10.0, &ind);
-            values.ampHours = buffer_get_float32(payload2, 10000.0, &ind);
-            values.ampHoursCharged = buffer_get_float32(payload2, 10000.0, &ind);
-            values.wattHours = buffer_get_float32(payload2, 10000.0, &ind);
-            values.wattHoursCharged = buffer_get_float32(payload2, 10000.0, &ind);
+            values.temp_mos = buffer_get_float16(payload2, 1e1, &ind);
+            values.temp_motor = buffer_get_float16(payload2, 1e1, &ind);
+            values.current_motor = buffer_get_float32(payload2, 1e2, &ind);
+            values.current_in = buffer_get_float32(payload2, 1e2, &ind);
+            values.id = buffer_get_float32(payload2, 1e2, &ind);
+            values.iq = buffer_get_float32(payload2, 1e2, &ind);
+            values.duty_now = buffer_get_float16(payload2, 1e3, &ind);
+            values.rpm = buffer_get_float32(payload2, 1e0, &ind);
+            values.v_in = buffer_get_float16(payload2, 1e1, &ind);
+            values.amp_hours = buffer_get_float32(payload2, 1e4, &ind);
+            values.amp_hours_charged = buffer_get_float32(payload2, 1e4, &ind);
+            values.watt_hours = buffer_get_float32(payload2, 1e4, &ind);
+            values.watt_hours_charged = buffer_get_float32(payload2, 1e4, &ind);
             values.tachometer = buffer_get_int32(payload2, &ind);
-            values.tachometerAbs = buffer_get_int32(payload2, &ind);
+            values.tachometer_abs = buffer_get_int32(payload2, &ind);
             values.fault_code = (mc_fault_code)payload2[ind++];
             
             [self resetPacket];
@@ -288,14 +205,12 @@ bool UnpackPayload(uint8_t* message, int lenMes, int lenPay) {
             
         default:
             [self resetPacket];
-            values.fault_code = FAULT_CODE_NO_DATA;
+            values.fault_code = FAULT_CODE_NONE;
             return values;
             break;
     }
-    
 }
-
-- (void) resetPacket {
+-(void)resetPacket{
     messageRead = false;
     counter = 0;
     endMessage = 256;

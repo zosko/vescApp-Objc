@@ -1,22 +1,22 @@
 //
 //  ViewController.h
-//  VESCApp
+//  Pedaless
 //
 //  Created by Bosko Petreski on 4/19/18.
 //  Copyright © 2018 Bosko Petreski. All rights reserved.
 //
 
 #import <UIKit/UIKit.h>
-#import "VescController.h"
+#import "VESC.h"
 
 @import CoreBluetooth;
 
 @interface ViewController : UIViewController <CBCentralManagerDelegate, CBPeripheralDelegate>{
-    VescController *aVescController;
+    VESC *vescController;
     
-    CBCentralManager *_centralManager;
-    CBPeripheral *_peripheral;
-    NSMutableArray *_peripherals;
+    CBCentralManager *centralManager;
+    CBPeripheral *connectedPeripheral;
+    NSMutableArray *peripherals;
     CBCharacteristic *txCharacteristic;
     CBCharacteristic *rxCharacteristic;
     

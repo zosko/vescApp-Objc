@@ -1,6 +1,6 @@
 //
 //  ViewController.m
-//  VESCApp
+//  Pedaless
 //
 //  Created by Bosko Petreski on 4/19/18.
 //  Copyright © 2018 Bosko Petreski. All rights reserved.
@@ -28,18 +28,17 @@
     NSLog(@"Bluetooth: %@",message);
 }
 -(void)centralManager:(CBCentralManager *)central didDiscoverPeripheral:(CBPeripheral *)peripheral advertisementData:(NSDictionary *)advertisementData RSSI:(NSNumber *)RSSI {
-    if (![_peripherals containsObject:peripheral]) {
-        [_peripherals addObject:peripheral];
+    if (![peripherals containsObject:peripheral]) {
+        [peripherals addObject:peripheral];
     }
 }
 -(void)centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral {
-    NSLog(@"Connected");
-    _peripheral = peripheral;
+    connectedPeripheral = peripheral;
     txCharacteristic = nil;
     rxCharacteristic = nil;
     
-    [_peripheral setDelegate:self];
-    [_peripheral discoverServices:nil];
+    [connectedPeripheral setDelegate:self];
+    [connectedPeripheral discoverServices:nil];
 }
 -(void)centralManager:(CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
     if (error != nil) {
@@ -49,9 +48,9 @@
 -(void)centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
     if (error != nil) {
         NSLog(@"Error disconnect: %@",error.description);
-    } else {
-        [aVescController resetPacket];
-        NSLog(@"Information: The reader is disconnected successfully.");
+    }
+    else {
+        [vescController resetPacket];
     }
 }
 -(void)peripheral:(CBPeripheral *)peripheral didWriteValueForCharacteristic:(CBCharacteristic *)characteristic error:(nullable NSError *)error{
@@ -59,32 +58,21 @@
         NSLog(@"Error receiving didWriteValueForCharacteristic %@: %@", characteristic, error);
         return;
     }
-    NSLog(@"didWriteValueForCharacteristic");
 }
 -(void)peripheralIsReadyToSendWriteWithoutResponse:(CBPeripheral *)peripheral{
-    NSLog(@"peripheralIsReadyToSendWriteWithoutResponse");
+    //NSLog(@"peripheralIsReadyToSendWriteWithoutResponse");
 }
 -(void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
     if (error) {
         NSLog(@"Error receiving notification for characteristic %@: %@", characteristic, error);
         return;
     }
-    NSLog(@"didUpdateValueForCharacteristic");
-    if ([aVescController process_incoming_bytes:characteristic.value] > 0) {
-        struct bldcMeasure values = [aVescController ProcessReadPacket];
-        
-        NSData *myData = [NSData dataWithBytes:&values length:sizeof(values)];
-        [self logData: myData];
-        if (values.fault_code == FAULT_CODE_NO_DATA) {
-            NSLog(@"Error");
-        } else {
-            NSLog(@"RPM: %ld", values.rpm);
-        }
+    if ([vescController process_incoming_bytes:characteristic.value] > 0) {
+        [self presentData:[vescController readPacket]];
     }
 }
 -(void)peripheral:(CBPeripheral *)peripheral didDiscoverServices:(NSError *)error {
     for (CBService *service in peripheral.services) {
-        NSLog(@"Discovered service: %@", service.UUID);
         [peripheral discoverCharacteristics:nil forService:service];
     }
 }
@@ -93,15 +81,9 @@
         NSLog(@"Error receiving didUpdateNotificationStateForCharacteristic %@: %@", characteristic, error);
         return;
     }
-    NSLog(@"didUpdateNotificationStateForCharacteristic");
 }
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverCharacteristicsForService:(CBService *)service error:(NSError *)error {
-    
-    NSLog(@"Discovered UART service characteristics");
-    
     for (CBCharacteristic *aChar in service.characteristics) {
-        NSLog(@"Char %@", aChar);
-        
         // BAUD BleMini   57600
         //TX BleMini:    713D0003-503E-4C75-BA94-3148F18D941E
         //RX BleMini:    713D0002-503E-4C75-BA94-3148F18D941E
@@ -111,16 +93,14 @@
         //RX HM-11:      FFE1
         
         if ([aChar.UUID isEqual:[CBUUID UUIDWithString:@"FFE1"]]) {
-            NSLog(@"Found TX service: %@",aChar);
             txCharacteristic = aChar;
             if (rxCharacteristic != nil){
                 [self performSelector:@selector(doGetValues) withObject:nil afterDelay:0.3];
             }
         }
         if ([aChar.UUID isEqual:[CBUUID UUIDWithString:@"FFE1"]]) {
-            NSLog(@"Found RX service: %@",aChar);
             rxCharacteristic = aChar;
-            [_peripheral setNotifyValue:YES forCharacteristic:rxCharacteristic];
+            [peripheral setNotifyValue:YES forCharacteristic:rxCharacteristic];
 
             if (txCharacteristic != nil){
                 [self performSelector:@selector(doGetValues) withObject:nil afterDelay:0.3];
@@ -137,46 +117,35 @@
 
 #pragma mark - IBActions
 -(IBAction)onBtnRead:(UIButton *)sender{
-    if (_peripheral != nil) {
-        [_centralManager cancelPeripheralConnection:_peripheral];
-        _peripheral = nil;
+    if (connectedPeripheral != nil) {
+        [centralManager cancelPeripheralConnection:connectedPeripheral];
+        connectedPeripheral = nil;
     }
-    [_peripherals removeAllObjects];
-    [_centralManager scanForPeripheralsWithServices:nil options:nil];
+    [peripherals removeAllObjects];
+    [centralManager scanForPeripheralsWithServices:nil options:nil];
     
     [self performSelector:@selector(stopSearchReader) withObject:nil afterDelay:2];
 }
 
 #pragma mark - CustomFunctions
--(void)logData:(NSData *)theData {
-    struct bldcMeasure thisData;
-    
-    [theData getBytes:&thisData length:sizeof(thisData)];
-    
-    lblTemperature.text = [NSString stringWithFormat:@"Temp Mosfet 1: %1.fC\nTemp Mosfet 2: %1.fC\nTemp Mosfet 3: %1.fC\nTemp Mosfet 4: %1.fC\nTemp Mosfet 5: %1.fC\nTemp Mosfet 6: %1.fC\nTemp PCB: %1.fC",
-                           thisData.temp_mos1,
-                           thisData.temp_mos2,
-                           thisData.temp_mos3,
-                           thisData.temp_mos4,
-                           thisData.temp_mos5,
-                           thisData.temp_mos6,
-                           thisData.temp_pcb];
-    lblCurrent.text = [NSString stringWithFormat:@"Current Input: %1.fA\nCurrent AVG: %1.fA",
-                       thisData.avgInputCurrent,thisData.avgMotorCurrent];
-    
-    lblWatts.text = [NSString stringWithFormat:@"Watt : %.2fW\nWatt Charged: %.2fW"
-                     ,thisData.wattHours,thisData.wattHoursCharged];
-    
-    lblVoltage.text = [NSString stringWithFormat:@"Voltage: %.1fv",thisData.inpVoltage];
+-(void)presentData:(mc_values)dataVesc {
+    lblTemperature.text = [NSString stringWithFormat:@"Temp Mosfet: %.2f degC\nTemp Motor: %.2f degC\nAMP Hours: %.4f Ah\nAMP Hours Regen: %.4f Ah",
+                           dataVesc.temp_mos,
+                           dataVesc.temp_motor,
+                           dataVesc.amp_hours,
+                           dataVesc.amp_hours_charged];
+    lblCurrent.text = [NSString stringWithFormat:@"Current Input: %.2f A\nCurrent AVG: %.2f A", dataVesc.current_motor,dataVesc.current_in];
+    lblWatts.text = [NSString stringWithFormat:@"Watt : %.4f Wh\nWatt Regen: %.4f Wh" ,dataVesc.watt_hours,dataVesc.watt_hours_charged];
+    lblVoltage.text = [NSString stringWithFormat:@"Voltage: %.2f V",dataVesc.v_in];
 }
 
 -(void)stopSearchReader{
-    [_centralManager stopScan];
+    [centralManager stopScan];
     
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Readers" message:@"Choose reader" preferredStyle:UIAlertControllerStyleAlert];
-    for(CBPeripheral *periperal in _peripherals){
+    for(CBPeripheral *periperal in peripherals){
         UIAlertAction *action = [UIAlertAction actionWithTitle:[NSString stringWithFormat:@"%@",periperal.name] style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
-            [self->_centralManager connectPeripheral:periperal options:nil];
+            [self->centralManager connectPeripheral:periperal options:nil];
         }];
         [alert addAction:action];
     }
@@ -186,10 +155,9 @@
     [self presentViewController:alert animated:YES completion:nil];
 }
 -(void)doGetValues {
-    [NSTimer scheduledTimerWithTimeInterval:0.5 repeats:YES block:^(NSTimer * _Nonnull timer) {
-        NSLog(@"Get Values");
-        NSData *dataToSend = [self->aVescController dataForGetValues:COMM_GET_VALUES val:0];
-        [self->_peripheral writeValue:dataToSend forCharacteristic:self->txCharacteristic type:CBCharacteristicWriteWithoutResponse];
+    [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer * _Nonnull timer) {
+        NSData *dataToSend = [self->vescController dataForGetValues];
+        [self->connectedPeripheral writeValue:dataToSend forCharacteristic:self->txCharacteristic type:CBCharacteristicWriteWithoutResponse];
     }];
 }
 
@@ -197,10 +165,9 @@
 -(void)viewDidLoad {
     [super viewDidLoad];
     
-    _centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
-    _peripherals = [NSMutableArray array];
-    aVescController = [[VescController alloc] init];
-    [aVescController dataForGetValues:0 val:0];    
+    centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
+    peripherals = NSMutableArray.new;
+    vescController = VESC.new;
 }
 -(void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];

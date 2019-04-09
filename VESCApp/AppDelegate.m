@@ -1,6 +1,6 @@
 //
 //  AppDelegate.m
-//  VESCApp
+//  Pedaless
 //
 //  Created by Bosko Petreski on 4/19/18.
 //  Copyright © 2018 Bosko Petreski. All rights reserved.
