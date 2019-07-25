@@ -25,6 +25,7 @@
     IBOutlet UILabel *lblWatts;
     IBOutlet UILabel *lblTemperature;
     IBOutlet UILabel *lblSpeed;
+    IBOutlet UILabel *lblDistance;
 }
 
 

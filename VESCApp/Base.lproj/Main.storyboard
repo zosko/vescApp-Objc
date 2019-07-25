@@ -65,9 +65,16 @@ Watt Regen: ~ Wh</string>
                                 <nil key="highlightedColor"/>
                             </label>
                             <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" text="~ km/h" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="bTc-fR-brb">
-                                <rect key="frame" x="15" y="434" width="342" height="148"/>
+                                <rect key="frame" x="15" y="434" width="342" height="69"/>
                                 <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxY="YES"/>
                                 <fontDescription key="fontDescription" type="boldSystem" pointSize="50"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" fixedFrame="YES" text="Distance: ~ km" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="mPt-5U-fix">
+                                <rect key="frame" x="16" y="503" width="342" height="40"/>
+                                <autoresizingMask key="autoresizingMask" widthSizable="YES" flexibleMaxY="YES"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="29"/>
                                 <nil key="textColor"/>
                                 <nil key="highlightedColor"/>
                             </label>
@@ -77,6 +84,7 @@ Watt Regen: ~ Wh</string>
                     </view>
                     <connections>
                         <outlet property="lblCurrent" destination="6N8-a4-GxY" id="HJe-Rf-BTC"/>
+                        <outlet property="lblDistance" destination="mPt-5U-fix" id="KjL-uN-5eG"/>
                         <outlet property="lblSpeed" destination="bTc-fR-brb" id="0fo-KU-csX"/>
                         <outlet property="lblTemperature" destination="VrP-5O-tOb" id="Rgz-rP-okT"/>
                         <outlet property="lblVoltage" destination="bel-rS-4LU" id="XiM-Qg-554"/>

@@ -163,10 +163,17 @@
     vescController = VESC.new;
     
     manager = [CLLocationManager updateManagerWithAccuracy:50.0 locationAge:15.0 authorizationDesciption:CLLocationUpdateAuthorizationDescriptionAlways];
+    __block CLLocation *oldLocation = nil;
+    __block double distance = 0;
     [manager startUpdatingLocationWithUpdateBlock:^(CLLocationManager *manager, CLLocation *location, NSError *error, BOOL *stopUpdating) {
         
+        if(oldLocation != nil){
+            distance += [location distanceFromLocation:oldLocation] / 1000;
+            self->lblDistance.text = [NSString stringWithFormat:@"Distance: %.1f km", distance];
+        }
+        oldLocation = location;
         double speedKMH = location.speed * 3.6;
-        self->lblSpeed.text = [NSString stringWithFormat:@"%.f km/h",speedKMH > 0 ?: 0.0];
+        self->lblSpeed.text = [NSString stringWithFormat:@"%.1f km/h",speedKMH];
     }];
 }
 -(void)didReceiveMemoryWarning {
