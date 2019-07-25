@@ -7,8 +7,11 @@
 //
 
 #import "ViewController.h"
+#import "CLLocationManager+blocks.h"
 
-@interface ViewController ()
+@interface ViewController (){
+    CLLocationManager *manager;
+}
 
 @end
 
@@ -35,7 +38,6 @@
 -(void)centralManager:(CBCentralManager *)central didConnectPeripheral:(CBPeripheral *)peripheral {
     connectedPeripheral = peripheral;
     txCharacteristic = nil;
-    rxCharacteristic = nil;
     
     [connectedPeripheral setDelegate:self];
     [connectedPeripheral discoverServices:nil];
@@ -73,7 +75,7 @@
 }
 -(void)peripheral:(CBPeripheral *)peripheral didDiscoverServices:(NSError *)error {
     for (CBService *service in peripheral.services) {
-        [peripheral discoverCharacteristics:nil forService:service];
+        [peripheral discoverCharacteristics:@[[CBUUID UUIDWithString:@"FFE1"]] forService:service];
     }
 }
 -(void)peripheral:(CBPeripheral *)peripheral didUpdateNotificationStateForCharacteristic:(CBCharacteristic *)characteristic error:(nullable NSError *)error{
@@ -83,36 +85,23 @@
     }
 }
 - (void)peripheral:(CBPeripheral *)peripheral didDiscoverCharacteristicsForService:(CBService *)service error:(NSError *)error {
-    for (CBCharacteristic *aChar in service.characteristics) {
-        // BAUD BleMini   57600
-        //TX BleMini:    713D0003-503E-4C75-BA94-3148F18D941E
-        //RX BleMini:    713D0002-503E-4C75-BA94-3148F18D941E
+    
+    // http://www.hangar42.nl/hm10
+    // BAUD HM-10    115200   //Flashed here http://www.hangar42.nl/ccloader
+    // The HM10 has one service, 0xFFE0, which has one characteristic, 0xFFE1 (these UUIDs can be changed with AT commands by the way)
+    
+    for (CBCharacteristic *characteristic in service.characteristics) {
         
-        // BAUD HM-11    9600   //Flashed here http://www.hangar42.nl/ccloader
-        //TX HM-11:      FFE1
-        //RX HM-11:      FFE1
-        
-        if ([aChar.UUID isEqual:[CBUUID UUIDWithString:@"FFE1"]]) {
-            txCharacteristic = aChar;
-            if (rxCharacteristic != nil){
-                [self performSelector:@selector(doGetValues) withObject:nil afterDelay:0.3];
-            }
-        }
-        if ([aChar.UUID isEqual:[CBUUID UUIDWithString:@"FFE1"]]) {
-            rxCharacteristic = aChar;
-            [peripheral setNotifyValue:YES forCharacteristic:rxCharacteristic];
-
-            if (txCharacteristic != nil){
-                [self performSelector:@selector(doGetValues) withObject:nil afterDelay:0.3];
-            }
+        if ([characteristic.UUID isEqual:[CBUUID UUIDWithString:@"FFE1"]]) {
+            
+            txCharacteristic = characteristic;
+            [peripheral setNotifyValue:YES forCharacteristic:characteristic];
+            
+            writeType = characteristic.properties == CBCharacteristicPropertyWrite ? CBCharacteristicWriteWithResponse : CBCharacteristicWriteWithoutResponse;
+            
+            [self performSelector:@selector(doGetValues) withObject:nil afterDelay:0.3];
         }
     }
-    
-//    NSLog(@"Discovered Device Info");
-//    for (CBCharacteristic *aChar in service.characteristics){
-//        NSLog(@"Found device service: %@", aChar.UUID);
-//        [_peripheral readValueForCharacteristic:aChar];
-//    }
 }
 
 #pragma mark - IBActions
@@ -120,11 +109,15 @@
     if (connectedPeripheral != nil) {
         [centralManager cancelPeripheralConnection:connectedPeripheral];
         connectedPeripheral = nil;
+        [peripherals removeAllObjects];
+        [sender setTitle:@"READ PEDALESS" forState:UIControlStateNormal];
     }
-    [peripherals removeAllObjects];
-    [centralManager scanForPeripheralsWithServices:nil options:nil];
-    
-    [self performSelector:@selector(stopSearchReader) withObject:nil afterDelay:2];
+    else{
+        [sender setTitle:@"DISCONNECT" forState:UIControlStateNormal];
+        [peripherals removeAllObjects];
+        [centralManager scanForPeripheralsWithServices:@[[CBUUID UUIDWithString:@"FFE0"]] options:nil];
+        [self performSelector:@selector(stopSearchReader) withObject:nil afterDelay:2];
+    }
 }
 
 #pragma mark - CustomFunctions
@@ -142,22 +135,22 @@
 -(void)stopSearchReader{
     [centralManager stopScan];
     
-    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Readers" message:@"Choose reader" preferredStyle:UIAlertControllerStyleAlert];
+    UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Search device" message:@"Choose Pedaless device" preferredStyle:UIAlertControllerStyleActionSheet];
     for(CBPeripheral *periperal in peripherals){
         UIAlertAction *action = [UIAlertAction actionWithTitle:[NSString stringWithFormat:@"%@",periperal.name] style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
             [self->centralManager connectPeripheral:periperal options:nil];
         }];
         [alert addAction:action];
     }
-    UIAlertAction *cancel = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+    UIAlertAction *cancel = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleDestructive handler:^(UIAlertAction * _Nonnull action) {
     }];
     [alert addAction:cancel];
     [self presentViewController:alert animated:YES completion:nil];
 }
 -(void)doGetValues {
     [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer * _Nonnull timer) {
-        NSData *dataToSend = [self->vescController dataForGetValues];
-        [self->connectedPeripheral writeValue:dataToSend forCharacteristic:self->txCharacteristic type:CBCharacteristicWriteWithoutResponse];
+        NSData *dataToSend = self->vescController.dataForGetValues;
+        [self->connectedPeripheral writeValue:dataToSend forCharacteristic:self->txCharacteristic type:self->writeType];
     }];
 }
 
@@ -165,9 +158,16 @@
 -(void)viewDidLoad {
     [super viewDidLoad];
     
-    centralManager = [[CBCentralManager alloc] initWithDelegate:self queue:nil];
+    centralManager = [CBCentralManager.alloc initWithDelegate:self queue:nil];
     peripherals = NSMutableArray.new;
     vescController = VESC.new;
+    
+    manager = [CLLocationManager updateManagerWithAccuracy:50.0 locationAge:15.0 authorizationDesciption:CLLocationUpdateAuthorizationDescriptionAlways];
+    [manager startUpdatingLocationWithUpdateBlock:^(CLLocationManager *manager, CLLocation *location, NSError *error, BOOL *stopUpdating) {
+        
+        double speedKMH = location.speed * 3.6;
+        self->lblSpeed.text = [NSString stringWithFormat:@"%.f km/h",speedKMH > 0 ?: 0.0];
+    }];
 }
 -(void)didReceiveMemoryWarning {
     [super didReceiveMemoryWarning];

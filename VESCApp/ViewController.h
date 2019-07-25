@@ -18,12 +18,13 @@
     CBPeripheral *connectedPeripheral;
     NSMutableArray *peripherals;
     CBCharacteristic *txCharacteristic;
-    CBCharacteristic *rxCharacteristic;
+    CBCharacteristicWriteType writeType;
     
     IBOutlet UILabel *lblVoltage;
     IBOutlet UILabel *lblCurrent;
     IBOutlet UILabel *lblWatts;
     IBOutlet UILabel *lblTemperature;
+    IBOutlet UILabel *lblSpeed;
 }
 
 
