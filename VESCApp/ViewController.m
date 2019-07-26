@@ -11,6 +11,7 @@
 
 @interface ViewController (){
     CLLocationManager *manager;
+    NSMutableArray *arrLogger;
 }
 
 @end
@@ -98,13 +99,21 @@
             [peripheral setNotifyValue:YES forCharacteristic:characteristic];
             
             writeType = characteristic.properties == CBCharacteristicPropertyWrite ? CBCharacteristicWriteWithResponse : CBCharacteristicWriteWithoutResponse;
-            
             [self performSelector:@selector(doGetValues) withObject:nil afterDelay:0.3];
         }
     }
 }
 
 #pragma mark - IBActions
+-(IBAction)onBtnShare:(UIButton *)sender{
+    NSData *dataJSON = [NSJSONSerialization dataWithJSONObject:arrLogger options:0 error:nil];
+    
+    NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingString:@"JSON.txt"]];
+    [[NSString.alloc initWithData:dataJSON encoding:NSUTF8StringEncoding] writeToURL:url atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    
+    UIActivityViewController *activityViewController = [[UIActivityViewController alloc] initWithActivityItems:@[@"JSON",url] applicationActivities:nil];
+    [self presentViewController:activityViewController animated:YES completion:nil];
+}
 -(IBAction)onBtnRead:(UIButton *)sender{
     if (connectedPeripheral != nil) {
         [centralManager cancelPeripheralConnection:connectedPeripheral];
@@ -121,15 +130,36 @@
 }
 
 #pragma mark - CustomFunctions
+-(NSString *)documentPath{
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *documentsDirectory = paths.firstObject;
+    NSString *plistPath = [documentsDirectory stringByAppendingPathComponent:@"DataLog.plist"];
+    return plistPath;
+}
 -(void)presentData:(mc_values)dataVesc {
     lblTemperature.text = [NSString stringWithFormat:@"Temp Mosfet: %.2f degC\nTemp Motor: %.2f degC\nAMP Hours: %.4f Ah\nAMP Hours Regen: %.4f Ah",
                            dataVesc.temp_mos,
                            dataVesc.temp_motor,
                            dataVesc.amp_hours,
                            dataVesc.amp_hours_charged];
-    lblCurrent.text = [NSString stringWithFormat:@"Current Input: %.2f A\nCurrent AVG: %.2f A", dataVesc.current_motor,dataVesc.current_in];
+    lblCurrent.text = [NSString stringWithFormat:@"Current Motor: %.2f A\nCurrent In: %.2f A", dataVesc.current_motor,dataVesc.current_in];
     lblWatts.text = [NSString stringWithFormat:@"Watt : %.4f Wh\nWatt Regen: %.4f Wh" ,dataVesc.watt_hours,dataVesc.watt_hours_charged];
     lblVoltage.text = [NSString stringWithFormat:@"Voltage: %.2f V",dataVesc.v_in];
+    
+    [arrLogger addObject:@{@"timestamp":@(NSDate.date.timeIntervalSince1970),
+                           @"v_in":@(dataVesc.v_in),
+                           @"temp_mos":@(dataVesc.temp_mos),
+                           @"current_motor":@(dataVesc.current_motor),
+                           @"current_in":@(dataVesc.current_in),
+                           @"rpm":@(dataVesc.rpm),
+                           @"amp_hours":@(dataVesc.amp_hours),
+                           @"watt_hours":@(dataVesc.watt_hours),
+                           @"tachometer":@(dataVesc.tachometer),
+                           @"tachometer_abs":@(dataVesc.tachometer_abs),
+                           @"mc_fault_code":@(dataVesc.fault_code)
+                           }];
+    
+    [arrLogger writeToFile:self.documentPath atomically:YES];
 }
 
 -(void)stopSearchReader{
@@ -157,6 +187,8 @@
 #pragma mark - UIViewDelegates
 -(void)viewDidLoad {
     [super viewDidLoad];
+    
+    arrLogger = NSMutableArray.new;
     
     centralManager = [CBCentralManager.alloc initWithDelegate:self queue:nil];
     peripherals = NSMutableArray.new;
