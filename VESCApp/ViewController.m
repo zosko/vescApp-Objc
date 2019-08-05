@@ -109,10 +109,16 @@
     NSData *dataJSON = [NSJSONSerialization dataWithJSONObject:arrLogger options:0 error:nil];
     
     NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingString:@"JSON.txt"]];
-    [[NSString.alloc initWithData:dataJSON encoding:NSUTF8StringEncoding] writeToURL:url atomically:YES encoding:NSUTF8StringEncoding error:nil];
+    NSString *strLog = [NSString.alloc initWithData:dataJSON encoding:NSUTF8StringEncoding];
+    [strLog writeToURL:url atomically:YES encoding:NSUTF8StringEncoding error:nil];
     
     UIActivityViewController *activityViewController = [[UIActivityViewController alloc] initWithActivityItems:@[@"JSON",url] applicationActivities:nil];
     [self presentViewController:activityViewController animated:YES completion:nil];
+    [activityViewController setCompletionWithItemsHandler:^(UIActivityType  _Nullable activityType, BOOL completed, NSArray * _Nullable returnedItems, NSError * _Nullable activityError) {
+       
+        self->arrLogger = NSMutableArray.new;
+        [self->arrLogger writeToFile:self.documentPath atomically:YES];
+    }];
 }
 -(IBAction)onBtnRead:(UIButton *)sender{
     if (connectedPeripheral != nil) {
@@ -122,6 +128,8 @@
         [sender setTitle:@"READ PEDALESS" forState:UIControlStateNormal];
     }
     else{
+        [arrLogger writeToFile:self.documentPath atomically:YES];
+        
         [sender setTitle:@"DISCONNECT" forState:UIControlStateNormal];
         [peripherals removeAllObjects];
         [centralManager scanForPeripheralsWithServices:@[[CBUUID UUIDWithString:@"FFE0"]] options:nil];
@@ -131,20 +139,17 @@
 
 #pragma mark - CustomFunctions
 -(NSString *)documentPath{
-    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    NSString *documentsDirectory = paths.firstObject;
-    NSString *plistPath = [documentsDirectory stringByAppendingPathComponent:@"DataLog.plist"];
+    NSString *directory = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+    NSString *plistPath = [directory stringByAppendingPathComponent:@"DataLog.plist"];
     return plistPath;
 }
 -(void)presentData:(mc_values)dataVesc {
-    lblTemperature.text = [NSString stringWithFormat:@"Temp Mosfet: %.2f degC\nTemp Motor: %.2f degC\nAMP Hours: %.4f Ah\nAMP Hours Regen: %.4f Ah",
-                           dataVesc.temp_mos,
-                           dataVesc.temp_motor,
-                           dataVesc.amp_hours,
-                           dataVesc.amp_hours_charged];
+    lblTemperature.text = [NSString stringWithFormat:@"Temp Mosfet: %.2f degC\nAMP Hours: %.4f Ah",
+                           dataVesc.temp_mos,dataVesc.amp_hours];
     lblCurrent.text = [NSString stringWithFormat:@"Current Motor: %.2f A\nCurrent In: %.2f A", dataVesc.current_motor,dataVesc.current_in];
-    lblWatts.text = [NSString stringWithFormat:@"Watt : %.4f Wh\nWatt Regen: %.4f Wh" ,dataVesc.watt_hours,dataVesc.watt_hours_charged];
+    lblWatts.text = [NSString stringWithFormat:@"Watt : %.4f Wh" ,dataVesc.watt_hours];
     lblVoltage.text = [NSString stringWithFormat:@"Voltage: %.2f V",dataVesc.v_in];
+    lblFaultyCode.text = @[@"NONE",@"OVER VOLTAGE",@"UNDER VOLTAGE",@"DRV",@"ABS OVER CURRENT",@"OVER TEMP FET",@"OVER TEMP MOTOR"][dataVesc.fault_code];
     
     [arrLogger addObject:@{@"timestamp":@(NSDate.date.timeIntervalSince1970),
                            @"v_in":@(dataVesc.v_in),
@@ -156,10 +161,11 @@
                            @"watt_hours":@(dataVesc.watt_hours),
                            @"tachometer":@(dataVesc.tachometer),
                            @"tachometer_abs":@(dataVesc.tachometer_abs),
-                           @"mc_fault_code":@(dataVesc.fault_code)
+                           @"mc_fault_code":@(dataVesc.fault_code),
+                           @"latitude":@(manager.location.coordinate.latitude),
+                           @"longitude":@(manager.location.coordinate.longitude),
+                           @"speed":@(manager.location.speed * 3.6)
                            }];
-    
-    [arrLogger writeToFile:self.documentPath atomically:YES];
 }
 
 -(void)stopSearchReader{
@@ -188,7 +194,8 @@
 -(void)viewDidLoad {
     [super viewDidLoad];
     
-    arrLogger = NSMutableArray.new;
+    NSArray *dataLogs = [NSArray arrayWithContentsOfFile:self.documentPath];
+    arrLogger = dataLogs ? [NSMutableArray arrayWithArray:dataLogs] : NSMutableArray.new;
     
     centralManager = [CBCentralManager.alloc initWithDelegate:self queue:nil];
     peripherals = NSMutableArray.new;
