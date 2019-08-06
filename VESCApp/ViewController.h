@@ -27,6 +27,8 @@
     IBOutlet UILabel *lblSpeed;
     IBOutlet UILabel *lblDistance;
     IBOutlet UILabel *lblFaultyCode;
+    IBOutlet UILabel *lblDriveTime;
+    IBOutlet UILabel *lblDuty;
 }
 
 

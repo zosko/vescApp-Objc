@@ -12,6 +12,7 @@
 @interface ViewController (){
     CLLocationManager *manager;
     NSMutableArray *arrLogger;
+    int secondStarted;
 }
 
 @end
@@ -117,18 +118,29 @@
     [activityViewController setCompletionWithItemsHandler:^(UIActivityType  _Nullable activityType, BOOL completed, NSArray * _Nullable returnedItems, NSError * _Nullable activityError) {
        
         self->arrLogger = NSMutableArray.new;
+        self->secondStarted = 0;
         [self->arrLogger writeToFile:self.documentPath atomically:YES];
     }];
 }
 -(IBAction)onBtnRead:(UIButton *)sender{
     if (connectedPeripheral != nil) {
-        [centralManager cancelPeripheralConnection:connectedPeripheral];
-        connectedPeripheral = nil;
-        [peripherals removeAllObjects];
-        [sender setTitle:@"READ PEDALESS" forState:UIControlStateNormal];
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Are you sure ?" message:@"" preferredStyle:UIAlertControllerStyleAlert];
+        
+        [alert addAction:[UIAlertAction actionWithTitle:@"Dissconnect" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+            
+            [self->arrLogger writeToFile:self.documentPath atomically:YES];
+            
+            [self->centralManager cancelPeripheralConnection:self->connectedPeripheral];
+            self->connectedPeripheral = nil;
+            [self->peripherals removeAllObjects];
+            [sender setTitle:@"READ PEDALESS" forState:UIControlStateNormal];
+        }]];
+        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+            
+        }]];
+        [self presentViewController:alert animated:YES completion:nil];
     }
     else{
-        [arrLogger writeToFile:self.documentPath atomically:YES];
         
         [sender setTitle:@"DISCONNECT" forState:UIControlStateNormal];
         [peripherals removeAllObjects];
@@ -149,7 +161,15 @@
     lblCurrent.text = [NSString stringWithFormat:@"Current Motor: %.2f A\nCurrent In: %.2f A", dataVesc.current_motor,dataVesc.current_in];
     lblWatts.text = [NSString stringWithFormat:@"Watt : %.4f Wh" ,dataVesc.watt_hours];
     lblVoltage.text = [NSString stringWithFormat:@"Voltage: %.2f V",dataVesc.v_in];
+    lblDuty.text = [NSString stringWithFormat:@"Duty: %.2f %%",dataVesc.duty_now * 1000];
     lblFaultyCode.text = @[@"NONE",@"OVER VOLTAGE",@"UNDER VOLTAGE",@"DRV",@"ABS OVER CURRENT",@"OVER TEMP FET",@"OVER TEMP MOTOR"][dataVesc.fault_code];
+    
+    int h = secondStarted / 3600;
+    int m = (secondStarted / 60) % 60;
+    int s = secondStarted % 60;
+    lblDriveTime.text = [NSString stringWithFormat:@"Drive time: %d:%02d:%02d", h, m, s];
+    
+    secondStarted++;
     
     [arrLogger addObject:@{@"timestamp":@(NSDate.date.timeIntervalSince1970),
                            @"v_in":@(dataVesc.v_in),
@@ -157,6 +177,7 @@
                            @"current_motor":@(dataVesc.current_motor),
                            @"current_in":@(dataVesc.current_in),
                            @"rpm":@(dataVesc.rpm),
+                           @"duty":@(dataVesc.duty_now * 1000),
                            @"amp_hours":@(dataVesc.amp_hours),
                            @"watt_hours":@(dataVesc.watt_hours),
                            @"tachometer":@(dataVesc.tachometer),
@@ -164,7 +185,8 @@
                            @"mc_fault_code":@(dataVesc.fault_code),
                            @"latitude":@(manager.location.coordinate.latitude),
                            @"longitude":@(manager.location.coordinate.longitude),
-                           @"speed":@(manager.location.speed * 3.6)
+                           @"speed":@(manager.location.speed * 3.6),
+                           @"drive_time":@(secondStarted)
                            }];
 }
 
