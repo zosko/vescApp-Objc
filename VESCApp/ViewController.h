@@ -9,9 +9,11 @@
 #import <UIKit/UIKit.h>
 #import "VESC.h"
 
+#define LOG_DATA 0
+
 @import CoreBluetooth;
 
-@interface ViewController : UIViewController <CBCentralManagerDelegate, CBPeripheralDelegate>{
+@interface ViewController : UIViewController <CBCentralManagerDelegate, CBPeripheralDelegate,UICollectionViewDelegate,UICollectionViewDataSource>{
     VESC *vescController;
     
     CBCentralManager *centralManager;
@@ -20,15 +22,8 @@
     CBCharacteristic *txCharacteristic;
     CBCharacteristicWriteType writeType;
     
-    IBOutlet UILabel *lblVoltage;
-    IBOutlet UILabel *lblCurrent;
-    IBOutlet UILabel *lblWatts;
-    IBOutlet UILabel *lblTemperature;
-    IBOutlet UILabel *lblSpeed;
-    IBOutlet UILabel *lblDistance;
-    IBOutlet UILabel *lblFaultyCode;
-    IBOutlet UILabel *lblDriveTime;
-    IBOutlet UILabel *lblDuty;
+    NSArray *arrPedalessData;
+    IBOutlet UICollectionView *colPedalessData;
 }
 
 

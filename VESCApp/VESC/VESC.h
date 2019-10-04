@@ -8,9 +8,18 @@
 
 #import <Foundation/Foundation.h>
 
+#define PACKET_LENGTH_IDENTIFICATION_BYTE_SHORT 2
+#define PACKET_LENGTH_IDENTIFICATION_BYTE_LONG 3
+#define PACKET_TERMINATION_BYTE 3
+#define PACKET_PAYLOAD_MAX_LENGTH 512
+
+// Start byte + packet length bytes + payload + 2 bytes (CRC) + termination byte
+#define PACKET_MAX_LENGTH (1 + 2 + PACKET_PAYLOAD_MAX_LENGTH + 2 + 1)
+
 // VESC defines
 typedef enum {
-    COMM_GET_VALUES = 4
+    COMM_GET_VALUES = 4,
+    COMM_SET_CURRENT = 6
 } COMM_PACKET_ID;
 
 typedef enum {
@@ -52,5 +61,6 @@ typedef struct {
 -(int)process_incoming_bytes:(NSData *)incomingData;
 -(mc_values)readPacket;
 -(void)resetPacket;
+-(NSData *)SetCurrent:(double)val;
 
 @end

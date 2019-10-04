@@ -79,25 +79,65 @@ void buffer_append_int32(uint8_t* buffer, int32_t number, int32_t *index) {
     buffer[(*index)++] = number >> 8;
     buffer[(*index)++] = number;
 }
+void buffer_append_float32(uint8_t* buffer, float number, float scale, int32_t *index) {
+    buffer_append_int32(buffer, (int32_t)(number * scale), index);
+}
+void buffer_append_double32(uint8_t* buffer, double number, double scale, int32_t *index){
+    buffer_append_int32(buffer, (int32_t)(roundDouble(number * scale)), index);
+}
+double roundDouble(double x){
+    return x < 0.0 ? ceil(x - 0.5) : floor(x + 0.5);
+}
 
 #pragma mark - VESC Helper
--(NSData *)dataForGetValues{
-    unsigned char buff[6];
+-(NSData *)SetCurrent:(double)val{
+    uint8_t buff[10];
     int32_t ind = 0;
+
+    buff[ind++] = PACKET_LENGTH_IDENTIFICATION_BYTE_SHORT;
+    buff[ind++] = 5; //Packet length... COMM_SET_CURR + 4 bytes of buffer_append
+    buff[ind++] = COMM_SET_CURRENT;
+
+    buffer_append_int32(buff, (int32_t) (val * 1000.0), &ind);
     
-    buff[ind++] = 2;
-    buff[ind++] = 1; // This is the length of the payload. Just one in this case.
+    uint8_t payloadCRC[5];
+    int32_t current = (int32_t)(val * 1000.0);
+    payloadCRC[0] = COMM_SET_CURRENT;
+    payloadCRC[1] = current >> 24;
+    payloadCRC[2] = current >> 16;
+    payloadCRC[3] = current >> 8;
+    payloadCRC[4] = current;
+    uint16_t crc = crc16(payloadCRC,5);
+    
+    
+    buff[ind++] = (uint8_t) (crc >> 8);
+    buff[ind++] = (uint8_t) (crc >> 0 & 0xFF);
+    buff[ind++] = PACKET_TERMINATION_BYTE;
+
+    NSData* data = [NSData dataWithBytes:(const void *)buff length:sizeof(buff)];
+    return data;
+}
+
+
+-(NSData *)dataForGetValues{
+    uint8_t buff[6];
+    int32_t ind = 0;
+
+    buff[ind++] = PACKET_LENGTH_IDENTIFICATION_BYTE_SHORT;
+    buff[ind++] = 1; //Packet lengh
     buff[ind++] = COMM_GET_VALUES;
+
+    uint8_t payloadCRC[1] = {COMM_GET_VALUES};
+    uint16_t crc = crc16(payloadCRC,1);
     
-    uint16_t crc = crc16(buff + 2,  ind - 2);
-    
-    buff[ind++] = crc >> 8;
-    buff[ind++] = crc;
-    
-    buff[ind++] = 3;
+//    uint16_t crc = crc16(buff + 2, ind - 2); // << this works also
+
+    buff[ind++] = (uint8_t) (crc >> 8);
+    buff[ind++] = (uint8_t) (crc >> 0 & 0xFF);
+    buff[ind++] = PACKET_TERMINATION_BYTE;
 
     NSData *data = [NSData dataWithBytes:(const void *)buff length:sizeof(buff)];
-    return data;    
+    return data;
 }
 
 int counter = 0;

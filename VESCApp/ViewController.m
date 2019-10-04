@@ -8,6 +8,7 @@
 
 #import "ViewController.h"
 #import "CLLocationManager+blocks.h"
+#import "DataCell.h"
 
 @interface ViewController (){
     CLLocationManager *manager;
@@ -72,7 +73,7 @@
         return;
     }
     if ([vescController process_incoming_bytes:characteristic.value] > 0) {
-        [self presentData:[vescController readPacket]];
+        [self presentData:vescController.readPacket];
     }
 }
 -(void)peripheral:(CBPeripheral *)peripheral didDiscoverServices:(NSError *)error {
@@ -106,6 +107,11 @@
 }
 
 #pragma mark - IBActions
+-(IBAction)onBtnCruise:(UIButton *)sender{
+    NSLog(@"PRESS");
+    NSData *dataToSend = [self->vescController SetCurrent:10];
+    [self->connectedPeripheral writeValue:dataToSend forCharacteristic:self->txCharacteristic type:self->writeType];
+}
 -(IBAction)onBtnShare:(UIButton *)sender{
     NSData *dataJSON = [NSJSONSerialization dataWithJSONObject:arrLogger options:0 error:nil];
     
@@ -156,38 +162,63 @@
     return plistPath;
 }
 -(void)presentData:(mc_values)dataVesc {
-    lblTemperature.text = [NSString stringWithFormat:@"Temp Mosfet: %.2f degC\nAMP Hours: %.4f Ah",
-                           dataVesc.temp_mos,dataVesc.amp_hours];
-    lblCurrent.text = [NSString stringWithFormat:@"Current Motor: %.2f A\nCurrent In: %.2f A", dataVesc.current_motor,dataVesc.current_in];
-    lblWatts.text = [NSString stringWithFormat:@"Watt : %.4f Wh" ,dataVesc.watt_hours];
-    lblVoltage.text = [NSString stringWithFormat:@"Voltage: %.2f V",dataVesc.v_in];
-    lblDuty.text = [NSString stringWithFormat:@"Duty: %.2f %%",dataVesc.duty_now * 1000];
-    lblFaultyCode.text = @[@"NONE",@"OVER VOLTAGE",@"UNDER VOLTAGE",@"DRV",@"ABS OVER CURRENT",@"OVER TEMP FET",@"OVER TEMP MOTOR"][dataVesc.fault_code];
     
+    
+    double wheelDiameter = 700; //mm diameter
+    double motorDiameter = 63; //mm diameter
+    double gearRatio = motorDiameter / wheelDiameter;
+    double motorPoles = 14;
+    
+    double ratioRpmSpeed = (gearRatio * 60 * wheelDiameter * M_PI) / ((motorPoles / 2) * 1000000); // ERPM to Km/h
+    double ratioPulseDistance = (gearRatio * wheelDiameter * M_PI) / ((motorPoles * 3) * 1000000); // Pulses to km travelled
+
+    double speed = dataVesc.rpm * ratioRpmSpeed;
+    double distance = dataVesc.tachometer_abs * ratioPulseDistance;
+    double power = dataVesc.current_in * dataVesc.v_in;
+
     int h = secondStarted / 3600;
     int m = (secondStarted / 60) % 60;
     int s = secondStarted % 60;
-    lblDriveTime.text = [NSString stringWithFormat:@"Drive time: %d:%02d:%02d", h, m, s];
     
-    secondStarted++;
+    arrPedalessData = @[@{@"title":@"Temp",@"data":[NSString stringWithFormat:@"%.2f degC",dataVesc.temp_mos]},
+                        @{@"title":@"Amp hours",@"data":[NSString stringWithFormat:@"%.4f Ah",dataVesc.amp_hours]},
+                        @{@"title":@"Current Motor",@"data":[NSString stringWithFormat:@"%.2f A",dataVesc.current_motor]},
+                        @{@"title":@"Current Batt",@"data":[NSString stringWithFormat:@"%.2f A",dataVesc.current_in]},
+                        @{@"title":@"Watts",@"data":[NSString stringWithFormat:@"%.4f Wh" ,dataVesc.watt_hours]},
+                        @{@"title":@"Voltage",@"data":[NSString stringWithFormat:@"%.2f V",dataVesc.v_in]},
+                        @{@"title":@"Fault Code",@"data":@[@"NONE",@"OVER VOLTAGE",@"UNDER VOLTAGE",@"DRV",@"ABS OVER CURRENT",@"OVER TEMP FET",@"OVER TEMP MOTOR"][dataVesc.fault_code]},
+                        @{@"title":@"Distance",@"data":[NSString stringWithFormat:@"%.1f km", distance]},
+                        @{@"title":@"Speed",@"data":[NSString stringWithFormat:@"%.1f km/h",speed]},
+                        @{@"title":@"Power",@"data":[NSString stringWithFormat:@"%.f W",power]},
+                        @{@"title":@"Drive time",@"data":[NSString stringWithFormat:@"%d:%02d:%02d", h, m, s]}
+                        ];
     
-    [arrLogger addObject:@{@"timestamp":@(NSDate.date.timeIntervalSince1970),
-                           @"v_in":@(dataVesc.v_in),
-                           @"temp_mos":@(dataVesc.temp_mos),
-                           @"current_motor":@(dataVesc.current_motor),
-                           @"current_in":@(dataVesc.current_in),
-                           @"rpm":@(dataVesc.rpm),
-                           @"duty":@(dataVesc.duty_now * 1000),
-                           @"amp_hours":@(dataVesc.amp_hours),
-                           @"watt_hours":@(dataVesc.watt_hours),
-                           @"tachometer":@(dataVesc.tachometer),
-                           @"tachometer_abs":@(dataVesc.tachometer_abs),
-                           @"mc_fault_code":@(dataVesc.fault_code),
-                           @"latitude":@(manager.location.coordinate.latitude),
-                           @"longitude":@(manager.location.coordinate.longitude),
-                           @"speed":@(manager.location.speed * 3.6),
-                           @"drive_time":@(secondStarted)
-                           }];
+    
+    [colPedalessData reloadData];
+    
+    if(dataVesc.current_motor > 0){
+       secondStarted++;
+    }
+    
+    if(LOG_DATA){
+        [arrLogger addObject:@{@"timestamp":@(NSDate.date.timeIntervalSince1970),
+                               @"v_in":@(dataVesc.v_in),
+                               @"temp_mos":@(dataVesc.temp_mos),
+                               @"current_motor":@(dataVesc.current_motor),
+                               @"current_in":@(dataVesc.current_in),
+                               @"rpm":@(dataVesc.rpm),
+                               @"duty":@(dataVesc.duty_now * 1000),
+                               @"amp_hours":@(dataVesc.amp_hours),
+                               @"watt_hours":@(dataVesc.watt_hours),
+                               @"tachometer":@(dataVesc.tachometer),
+                               @"tachometer_abs":@(dataVesc.tachometer_abs),
+                               @"mc_fault_code":@(dataVesc.fault_code),
+                               @"latitude":@(manager.location.coordinate.latitude),
+                               @"longitude":@(manager.location.coordinate.longitude),
+                               @"speed":@(manager.location.speed * 3.6),
+                               @"drive_time":@(secondStarted)
+                               }];
+    }
 }
 
 -(void)stopSearchReader{
@@ -206,10 +237,33 @@
     [self presentViewController:alert animated:YES completion:nil];
 }
 -(void)doGetValues {
-    [NSTimer scheduledTimerWithTimeInterval:1 repeats:YES block:^(NSTimer * _Nonnull timer) {
-        NSData *dataToSend = self->vescController.dataForGetValues;
-        [self->connectedPeripheral writeValue:dataToSend forCharacteristic:self->txCharacteristic type:self->writeType];
+    [NSTimer scheduledTimerWithTimeInterval:1.0 repeats:YES block:^(NSTimer * _Nonnull timer) {
+//        NSData *dataToSend = [self->vescController SetCurrent:5];
+//        [self->connectedPeripheral writeValue:dataToSend forCharacteristic:self->txCharacteristic type:self->writeType];
+        
+        NSData *dataToGet = self->vescController.dataForGetValues;
+        [self->connectedPeripheral writeValue:dataToGet forCharacteristic:self->txCharacteristic type:self->writeType];
     }];
+}
+
+#pragma mark - CollectionView
+-(NSInteger)collectionView:(UICollectionView *)collectionView numberOfItemsInSection:(NSInteger)section{
+    return arrPedalessData.count;
+}
+-(__kindof UICollectionViewCell *)collectionView:(UICollectionView *)collectionView cellForItemAtIndexPath:(NSIndexPath *)indexPath{
+    static NSString *cellIdentifier = @"DataCell";
+    DataCell *cell = [collectionView dequeueReusableCellWithReuseIdentifier:cellIdentifier forIndexPath:indexPath];
+    
+    NSDictionary *dictData = arrPedalessData[indexPath.row];
+    
+    cell.lblData.text = dictData[@"data"];
+    cell.lblTitle.text = dictData[@"title"];
+    
+    
+    cell.layer.borderColor = UIColor.lightGrayColor.CGColor;
+    cell.layer.borderWidth = 2;
+    
+    return cell;
 }
 
 #pragma mark - UIViewDelegates
@@ -223,18 +277,23 @@
     peripherals = NSMutableArray.new;
     vescController = VESC.new;
     
+    
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self onBtnRead:nil];
+    });
+    
     manager = [CLLocationManager updateManagerWithAccuracy:50.0 locationAge:15.0 authorizationDesciption:CLLocationUpdateAuthorizationDescriptionAlways];
     __block CLLocation *oldLocation = nil;
     __block double distance = 0;
     [manager startUpdatingLocationWithUpdateBlock:^(CLLocationManager *manager, CLLocation *location, NSError *error, BOOL *stopUpdating) {
-        
+
         if(oldLocation != nil){
             distance += [location distanceFromLocation:oldLocation] / 1000;
-            self->lblDistance.text = [NSString stringWithFormat:@"Distance: %.1f km", distance];
+            NSLog(@"GPS DISTANCE: %@",[NSString stringWithFormat:@"Distance: %.1f km", distance]);
         }
         oldLocation = location;
         double speedKMH = location.speed * 3.6;
-        self->lblSpeed.text = [NSString stringWithFormat:@"%.1f km/h",speedKMH];
+        NSLog(@"GPS SPEED: %@",[NSString stringWithFormat:@"%.1f km/h",speedKMH]);
     }];
 }
 -(void)didReceiveMemoryWarning {
