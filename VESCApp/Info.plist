@@ -37,7 +37,9 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>For Speed</string>
+	<string>Used for tracking location</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Used to connect with Pedaless</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

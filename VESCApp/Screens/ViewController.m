@@ -9,11 +9,13 @@
 #import "ViewController.h"
 #import "CLLocationManager+blocks.h"
 #import "DataCell.h"
+#import "Helpers.h"
 
 @interface ViewController (){
     CLLocationManager *manager;
     NSMutableArray *arrLogger;
-    int secondStarted;
+    NSInteger secondStarted;
+    NSTimer *timerValues;
 }
 
 @end
@@ -65,7 +67,7 @@
     }
 }
 -(void)peripheralIsReadyToSendWriteWithoutResponse:(CBPeripheral *)peripheral{
-    //NSLog(@"peripheralIsReadyToSendWriteWithoutResponse");
+    NSLog(@"peripheralIsReadyToSendWriteWithoutResponse");
 }
 -(void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
     if (error) {
@@ -107,48 +109,29 @@
 }
 
 #pragma mark - IBActions
--(IBAction)onBtnCruise:(UIButton *)sender{
-    NSLog(@"PRESS");
-    NSData *dataToSend = [self->vescController SetCurrent:10];
-    [self->connectedPeripheral writeValue:dataToSend forCharacteristic:self->txCharacteristic type:self->writeType];
-}
--(IBAction)onBtnShare:(UIButton *)sender{
-    NSData *dataJSON = [NSJSONSerialization dataWithJSONObject:arrLogger options:0 error:nil];
-    
-    NSURL *url = [NSURL fileURLWithPath:[NSTemporaryDirectory() stringByAppendingString:@"JSON.txt"]];
-    NSString *strLog = [NSString.alloc initWithData:dataJSON encoding:NSUTF8StringEncoding];
-    [strLog writeToURL:url atomically:YES encoding:NSUTF8StringEncoding error:nil];
-    
-    UIActivityViewController *activityViewController = [[UIActivityViewController alloc] initWithActivityItems:@[@"JSON",url] applicationActivities:nil];
-    [self presentViewController:activityViewController animated:YES completion:nil];
-    [activityViewController setCompletionWithItemsHandler:^(UIActivityType  _Nullable activityType, BOOL completed, NSArray * _Nullable returnedItems, NSError * _Nullable activityError) {
-       
-        self->arrLogger = NSMutableArray.new;
-        self->secondStarted = 0;
-        [self->arrLogger writeToFile:self.documentPath atomically:YES];
-    }];
-}
--(IBAction)onBtnRead:(UIButton *)sender{
+-(IBAction)onBtnConnect:(UIButton *)sender{
     if (connectedPeripheral != nil) {
-        UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Are you sure ?" message:@"" preferredStyle:UIAlertControllerStyleAlert];
         
-        [alert addAction:[UIAlertAction actionWithTitle:@"Dissconnect" style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
+        [Helpers showPopup:self title:@"Are you sure ?" buttonName:@"Dissconnect" cancelName:@"No" ok:^{
+           [self->arrLogger writeToFile:Helpers.documentPath atomically:YES];
             
-            [self->arrLogger writeToFile:self.documentPath atomically:YES];
-            
+            [self->timerValues invalidate]; self->timerValues = nil;
             [self->centralManager cancelPeripheralConnection:self->connectedPeripheral];
             self->connectedPeripheral = nil;
             [self->peripherals removeAllObjects];
-            [sender setTitle:@"READ PEDALESS" forState:UIControlStateNormal];
-        }]];
-        [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:^(UIAlertAction * _Nonnull action) {
+            [sender setTitle:@"Connect" forState:UIControlStateNormal];
             
-        }]];
-        [self presentViewController:alert animated:YES completion:nil];
+            [Helpers showPopup:self title:@"Do you want to share data?" buttonName:@"Yes" cancelName:@"No" ok:^{
+                [Helpers shareData:self logData:self->arrLogger shared:^{
+                   self->arrLogger = NSMutableArray.new;
+                    self->secondStarted = 0;
+                    [self->arrLogger writeToFile:Helpers.documentPath atomically:YES];
+                }];
+            } cancel:nil];
+        } cancel:nil];
     }
     else{
-        
-        [sender setTitle:@"DISCONNECT" forState:UIControlStateNormal];
+        [sender setTitle:@"Disconnect" forState:UIControlStateNormal];
         [peripherals removeAllObjects];
         [centralManager scanForPeripheralsWithServices:@[[CBUUID UUIDWithString:@"FFE0"]] options:nil];
         [self performSelector:@selector(stopSearchReader) withObject:nil afterDelay:2];
@@ -156,14 +139,7 @@
 }
 
 #pragma mark - CustomFunctions
--(NSString *)documentPath{
-    NSString *directory = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-    NSString *plistPath = [directory stringByAppendingPathComponent:@"DataLog.plist"];
-    return plistPath;
-}
 -(void)presentData:(mc_values)dataVesc {
-    
-    
     double wheelDiameter = 700; //mm diameter
     double motorDiameter = 63; //mm diameter
     double gearRatio = motorDiameter / wheelDiameter;
@@ -176,9 +152,9 @@
     double distance = dataVesc.tachometer_abs * ratioPulseDistance;
     double power = dataVesc.current_in * dataVesc.v_in;
 
-    int h = secondStarted / 3600;
-    int m = (secondStarted / 60) % 60;
-    int s = secondStarted % 60;
+    NSInteger h = secondStarted / 3600;
+    NSInteger m = (secondStarted / 60) % 60;
+    NSInteger s = secondStarted % 60;
     
     arrPedalessData = @[@{@"title":@"Temp",@"data":[NSString stringWithFormat:@"%.2f degC",dataVesc.temp_mos]},
                         @{@"title":@"Amp hours",@"data":[NSString stringWithFormat:@"%.4f Ah",dataVesc.amp_hours]},
@@ -187,12 +163,11 @@
                         @{@"title":@"Watts",@"data":[NSString stringWithFormat:@"%.4f Wh" ,dataVesc.watt_hours]},
                         @{@"title":@"Voltage",@"data":[NSString stringWithFormat:@"%.2f V",dataVesc.v_in]},
                         @{@"title":@"Fault Code",@"data":@[@"NONE",@"OVER VOLTAGE",@"UNDER VOLTAGE",@"DRV",@"ABS OVER CURRENT",@"OVER TEMP FET",@"OVER TEMP MOTOR"][dataVesc.fault_code]},
-                        @{@"title":@"Distance",@"data":[NSString stringWithFormat:@"%.1f km", distance]},
+                        @{@"title":@"Distance",@"data":[NSString stringWithFormat:@"%.2f km", distance]},
                         @{@"title":@"Speed",@"data":[NSString stringWithFormat:@"%.1f km/h",speed]},
                         @{@"title":@"Power",@"data":[NSString stringWithFormat:@"%.f W",power]},
-                        @{@"title":@"Drive time",@"data":[NSString stringWithFormat:@"%d:%02d:%02d", h, m, s]}
-                        ];
-    
+                        @{@"title":@"Drive time",@"data":[NSString stringWithFormat:@"%ld:%02ld:%02ld", h, m, s]}
+    ];
     
     [colPedalessData reloadData];
     
@@ -215,7 +190,8 @@
                                @"mc_fault_code":@(dataVesc.fault_code),
                                @"latitude":@(manager.location.coordinate.latitude),
                                @"longitude":@(manager.location.coordinate.longitude),
-                               @"speed":@(manager.location.speed * 3.6),
+                               @"speed":@(speed),
+                               @"distance":@(distance),
                                @"drive_time":@(secondStarted)
                                }];
     }
@@ -223,7 +199,7 @@
 
 -(void)stopSearchReader{
     [centralManager stopScan];
-    
+        
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Search device" message:@"Choose Pedaless device" preferredStyle:UIAlertControllerStyleActionSheet];
     for(CBPeripheral *periperal in peripherals){
         UIAlertAction *action = [UIAlertAction actionWithTitle:[NSString stringWithFormat:@"%@",periperal.name] style:UIAlertActionStyleDefault handler:^(UIAlertAction * _Nonnull action) {
@@ -232,15 +208,13 @@
         [alert addAction:action];
     }
     UIAlertAction *cancel = [UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleDestructive handler:^(UIAlertAction * _Nonnull action) {
+        [self->btnConnect setTitle:@"Connect" forState:UIControlStateNormal];
     }];
     [alert addAction:cancel];
     [self presentViewController:alert animated:YES completion:nil];
 }
 -(void)doGetValues {
-    [NSTimer scheduledTimerWithTimeInterval:1.0 repeats:YES block:^(NSTimer * _Nonnull timer) {
-//        NSData *dataToSend = [self->vescController SetCurrent:5];
-//        [self->connectedPeripheral writeValue:dataToSend forCharacteristic:self->txCharacteristic type:self->writeType];
-        
+    timerValues = [NSTimer scheduledTimerWithTimeInterval:1.0 repeats:YES block:^(NSTimer * _Nonnull timer) {
         NSData *dataToGet = self->vescController.dataForGetValues;
         [self->connectedPeripheral writeValue:dataToGet forCharacteristic:self->txCharacteristic type:self->writeType];
     }];
@@ -259,7 +233,6 @@
     cell.lblData.text = dictData[@"data"];
     cell.lblTitle.text = dictData[@"title"];
     
-    
     cell.layer.borderColor = UIColor.lightGrayColor.CGColor;
     cell.layer.borderWidth = 2;
     
@@ -270,30 +243,16 @@
 -(void)viewDidLoad {
     [super viewDidLoad];
     
-    NSArray *dataLogs = [NSArray arrayWithContentsOfFile:self.documentPath];
+    NSArray *dataLogs = [NSArray arrayWithContentsOfFile:Helpers.documentPath];
     arrLogger = dataLogs ? [NSMutableArray arrayWithArray:dataLogs] : NSMutableArray.new;
     
     centralManager = [CBCentralManager.alloc initWithDelegate:self queue:nil];
     peripherals = NSMutableArray.new;
     vescController = VESC.new;
     
-    
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-        [self onBtnRead:nil];
-    });
-    
     manager = [CLLocationManager updateManagerWithAccuracy:50.0 locationAge:15.0 authorizationDesciption:CLLocationUpdateAuthorizationDescriptionAlways];
-    __block CLLocation *oldLocation = nil;
-    __block double distance = 0;
     [manager startUpdatingLocationWithUpdateBlock:^(CLLocationManager *manager, CLLocation *location, NSError *error, BOOL *stopUpdating) {
-
-        if(oldLocation != nil){
-            distance += [location distanceFromLocation:oldLocation] / 1000;
-            NSLog(@"GPS DISTANCE: %@",[NSString stringWithFormat:@"Distance: %.1f km", distance]);
-        }
-        oldLocation = location;
-        double speedKMH = location.speed * 3.6;
-        NSLog(@"GPS SPEED: %@",[NSString stringWithFormat:@"%.1f km/h",speedKMH]);
+        
     }];
 }
 -(void)didReceiveMemoryWarning {

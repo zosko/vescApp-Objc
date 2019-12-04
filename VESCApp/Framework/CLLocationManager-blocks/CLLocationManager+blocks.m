@@ -91,13 +91,6 @@ CLLocationAgeFilter const kCLLocationAgeFilterNone = 0.0;
 
 
 #pragma mark - CLLocationManager Delegate
-
-- (void)locationManager:(CLLocationManager *)manager didUpdateToLocation:(CLLocation *)newLocation fromLocation:(CLLocation *)oldLocation
-{
-    // Pre iOS 6 is using this method for updates. Passing the update on to the new method.
-    [self locationManager:manager didUpdateLocations:@[newLocation]];
-}
-
 - (void)locationManager:(CLLocationManager *)manager didUpdateLocations:(NSArray *)locations
 {
     NSMutableArray *filteredLocationsMutable = [NSMutableArray array];
