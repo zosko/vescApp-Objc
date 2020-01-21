@@ -67,7 +67,7 @@
     }
 }
 -(void)peripheralIsReadyToSendWriteWithoutResponse:(CBPeripheral *)peripheral{
-    NSLog(@"peripheralIsReadyToSendWriteWithoutResponse");
+
 }
 -(void)peripheral:(CBPeripheral *)peripheral didUpdateValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
     if (error) {
@@ -121,13 +121,17 @@
             [self->peripherals removeAllObjects];
             [sender setTitle:@"Connect" forState:UIControlStateNormal];
             
-            [Helpers showPopup:self title:@"Do you want to share data?" buttonName:@"Yes" cancelName:@"No" ok:^{
-                [Helpers shareData:self logData:self->arrLogger shared:^{
-                   self->arrLogger = NSMutableArray.new;
-                    self->secondStarted = 0;
-                    [self->arrLogger writeToFile:Helpers.documentPath atomically:YES];
-                }];
-            } cancel:nil];
+            self->secondStarted = 0;
+            
+            if(LOG_DATA){
+                [Helpers showPopup:self title:@"Do you want to share data?" buttonName:@"Yes" cancelName:@"No" ok:^{
+                    [Helpers shareData:self logData:self->arrLogger shared:^{
+                       self->arrLogger = NSMutableArray.new;
+                        [self->arrLogger writeToFile:Helpers.documentPath atomically:YES];
+                    }];
+                } cancel:nil];
+            }
+            
         } cancel:nil];
     }
     else{
@@ -139,6 +143,27 @@
 }
 
 #pragma mark - CustomFunctions
+-(NSArray *)errorVESC{
+    return @[@"NONE",
+             @"OVER_VOLTAGE",
+             @"UNDER_VOLTAGE",
+             @"DRV",
+             @"ABS_OVER_CURRENT",
+             @"OVER_TEMP_FET",
+             @"OVER_TEMP_MOTOR",
+             @"GATE_DRIVER_OVER_VOLTAGE",
+             @"GATE_DRIVER_UNDER_VOLTAGE",
+             @"MCU_UNDER_VOLTAGE",
+             @"BOOTING_FROM_WATCHDOG_RESET",
+             @"ENCODER_SPI",
+             @"ENCODER_SINCOS_BELOW_MIN_AMPLITUDE",
+             @"ENCODER_SINCOS_ABOVE_MAX_AMPLITUDE",
+             @"FLASH_CORRUPTION",
+             @"HIGH_OFFSET_CURRENT_SENSOR_1",
+             @"HIGH_OFFSET_CURRENT_SENSOR_2",
+             @"HIGH_OFFSET_CURRENT_SENSOR_3",
+             @"UNBALANCED_CURRENTS"];
+}
 -(void)presentData:(mc_values)dataVesc {
     double wheelDiameter = 700; //mm diameter
     double motorDiameter = 63; //mm diameter
@@ -156,17 +181,35 @@
     NSInteger m = (secondStarted / 60) % 60;
     NSInteger s = secondStarted % 60;
     
-    arrPedalessData = @[@{@"title":@"Temp",@"data":[NSString stringWithFormat:@"%.2f degC",dataVesc.temp_mos]},
-                        @{@"title":@"Amp hours",@"data":[NSString stringWithFormat:@"%.4f Ah",dataVesc.amp_hours]},
-                        @{@"title":@"Current Motor",@"data":[NSString stringWithFormat:@"%.2f A",dataVesc.current_motor]},
-                        @{@"title":@"Current Batt",@"data":[NSString stringWithFormat:@"%.2f A",dataVesc.current_in]},
-                        @{@"title":@"Watts",@"data":[NSString stringWithFormat:@"%.4f Wh" ,dataVesc.watt_hours]},
-                        @{@"title":@"Voltage",@"data":[NSString stringWithFormat:@"%.2f V",dataVesc.v_in]},
-                        @{@"title":@"Fault Code",@"data":@[@"NONE",@"OVER VOLTAGE",@"UNDER VOLTAGE",@"DRV",@"ABS OVER CURRENT",@"OVER TEMP FET",@"OVER TEMP MOTOR"][dataVesc.fault_code]},
-                        @{@"title":@"Distance",@"data":[NSString stringWithFormat:@"%.2f km", distance]},
-                        @{@"title":@"Speed",@"data":[NSString stringWithFormat:@"%.1f km/h",speed]},
+    arrPedalessData = @[@{@"title":@"Temp MOSFET",@"data":[NSString stringWithFormat:@"%.2f degC",dataVesc.temp_mos]},
+                        @{@"title":@"Temp Motor",@"data":[NSString stringWithFormat:@"%.2f degC",dataVesc.temp_motor]},
+                        
+                        @{@"title":@"Ah Discharged",@"data":[NSString stringWithFormat:@"%.4f Ah",dataVesc.amp_hours]},
+                        @{@"title":@"Ah Charged",@"data":[NSString stringWithFormat:@"%.4f Ah",dataVesc.amp_hours_charged]},
+                        
+                        @{@"title":@"Motor Current",@"data":[NSString stringWithFormat:@"%.2f A",dataVesc.current_motor]},
+                        @{@"title":@"Battery Current",@"data":[NSString stringWithFormat:@"%.2f A",dataVesc.current_in]},
+                        
+                        @{@"title":@"Watts Discharged",@"data":[NSString stringWithFormat:@"%.4f Wh" ,dataVesc.watt_hours]},
+                        @{@"title":@"Watts Charged",@"data":[NSString stringWithFormat:@"%.4f Wh" ,dataVesc.watt_hours_charged]},
+                        
+                        @{@"title":@"Watts Left",@"data":[NSString stringWithFormat:@"%.f Wh" ,dataVesc.watt_left]},
+                        @{@"title":@"Battery Level",@"data":[NSString stringWithFormat:@"%.f%%",dataVesc.battery_level]},
+                        
                         @{@"title":@"Power",@"data":[NSString stringWithFormat:@"%.f W",power]},
-                        @{@"title":@"Drive time",@"data":[NSString stringWithFormat:@"%ld:%02ld:%02ld", h, m, s]}
+                        @{@"title":@"Distance",@"data":[NSString stringWithFormat:@"%.2f km", distance]},
+                        
+                        @{@"title":@"Speed",@"data":[NSString stringWithFormat:@"%.1f km/h",speed]},
+                        @{@"title":@"Speed VESC",@"data":[NSString stringWithFormat:@"%.1f km/h",dataVesc.speed]},
+                        
+                        @{@"title":@"Fault Code",@"data":self.errorVESC[dataVesc.fault_code]},
+                        @{@"title":@"Drive time",@"data":[NSString stringWithFormat:@"%ld:%02ld:%02ld", h, m, s]},
+                        
+                        @{@"title":@"Voltage",@"data":[NSString stringWithFormat:@"%.2f V",dataVesc.v_in]},
+                        @{@"title":@"Duty Now",@"data":[NSString stringWithFormat:@"%.f",dataVesc.duty_now]},
+                        
+                        @{@"title":@"VESCs #",@"data":[NSString stringWithFormat:@"%d",dataVesc.vesc_num]},
+                        @{@"title":@"VESC ID",@"data":[NSString stringWithFormat:@"%d",dataVesc.vesc_id]}
     ];
     
     [colPedalessData reloadData];

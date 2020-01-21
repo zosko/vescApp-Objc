@@ -90,53 +90,29 @@ double roundDouble(double x){
 }
 
 #pragma mark - VESC Helper
--(NSData *)SetCurrent:(double)val{
-    uint8_t buff[10];
-    int32_t ind = 0;
-
-    buff[ind++] = PACKET_LENGTH_IDENTIFICATION_BYTE_SHORT;
-    buff[ind++] = 5; //Packet length... COMM_SET_CURR + 4 bytes of buffer_append
-    buff[ind++] = COMM_SET_CURRENT;
-
-    buffer_append_int32(buff, (int32_t) (val * 1000.0), &ind);
-    
-    uint8_t payloadCRC[5];
-    int32_t current = (int32_t)(val * 1000.0);
-    payloadCRC[0] = COMM_SET_CURRENT;
-    payloadCRC[1] = current >> 24;
-    payloadCRC[2] = current >> 16;
-    payloadCRC[3] = current >> 8;
-    payloadCRC[4] = current;
-    uint16_t crc = crc16(payloadCRC,5);
-    
-    
-    buff[ind++] = (uint8_t) (crc >> 8);
-    buff[ind++] = (uint8_t) (crc >> 0 & 0xFF);
-    buff[ind++] = PACKET_TERMINATION_BYTE;
-
-    NSData* data = [NSData dataWithBytes:(const void *)buff length:sizeof(buff)];
-    return data;
-}
-
-
 -(NSData *)dataForGetValues{
-    uint8_t buff[6];
-    int32_t ind = 0;
-
-    buff[ind++] = PACKET_LENGTH_IDENTIFICATION_BYTE_SHORT;
-    buff[ind++] = 1; //Packet lengh
-    buff[ind++] = COMM_GET_VALUES;
-
-    uint8_t payloadCRC[1] = {COMM_GET_VALUES};
-    uint16_t crc = crc16(payloadCRC,1);
+    uint8_t command[5];
+    command[0] = COMM_GET_VALUES_SETUP_SELECTIVE;
+    command[1] = 0x00 ; //mask MSB
+    command[2] = 0x0F ; //mask
+    command[3] = 0xFF ; //mask
+    command[4] = 0xFF ; //mask LSB
     
-//    uint16_t crc = crc16(buff + 2, ind - 2); // << this works also
-
-    buff[ind++] = (uint8_t) (crc >> 8);
-    buff[ind++] = (uint8_t) (crc >> 0 & 0xFF);
-    buff[ind++] = PACKET_TERMINATION_BYTE;
-
-    NSData *data = [NSData dataWithBytes:(const void *)buff length:sizeof(buff)];
+    uint16_t crcPayload = crc16(command,sizeof(command));
+    int count = 0;
+    uint8_t messageSend[256];
+    messageSend[count++] = PACKET_LENGTH_IDENTIFICATION_BYTE_SHORT;
+    messageSend[count++] = sizeof(command);
+    
+    memcpy(&messageSend[count], command, sizeof(command));
+    
+    count += sizeof(command);
+    messageSend[count++] = (uint8_t)(crcPayload >> 8);
+    messageSend[count++] = (uint8_t)(crcPayload & 0xFF);
+    messageSend[count++] = PACKET_TERMINATION_BYTE;
+    messageSend[count] = '\0'; // << neznam
+    
+    NSData *data = [NSData dataWithBytes:(const void *)messageSend length:count];
     return data;
 }
 
@@ -193,7 +169,7 @@ uint8_t payload[256];
 bool UnpackPayload(uint8_t* message, int lenMes, int lenPay) {
     uint16_t crcMessage = 0;
     uint16_t crcPayload = 0;
-   
+    
     crcMessage = message[lenMes - 3] << 8;
     crcMessage &= 0xFF00;
     crcMessage += message[lenMes - 2];
@@ -214,30 +190,34 @@ bool UnpackPayload(uint8_t* message, int lenMes, int lenPay) {
     int32_t ind = 0;
     mc_values values;
     packetId = (COMM_PACKET_ID)payload[0];
-
+    
     uint8_t payload2[256];
     memcpy(payload2, payload + 1, sizeof(payload)-1);
-
+    
     switch (packetId){
-        case COMM_GET_VALUES:
-            ind = 0;
+        case COMM_GET_VALUES_SETUP_SELECTIVE:
+            ind = 4; // Skip the mask
             
             values.temp_mos = buffer_get_float16(payload2, 1e1, &ind);
             values.temp_motor = buffer_get_float16(payload2, 1e1, &ind);
             values.current_motor = buffer_get_float32(payload2, 1e2, &ind);
             values.current_in = buffer_get_float32(payload2, 1e2, &ind);
-            values.id = buffer_get_float32(payload2, 1e2, &ind);
-            values.iq = buffer_get_float32(payload2, 1e2, &ind);
             values.duty_now = buffer_get_float16(payload2, 1e3, &ind);
             values.rpm = buffer_get_float32(payload2, 1e0, &ind);
+            values.speed = buffer_get_float32(payload2, 1e0, &ind);
             values.v_in = buffer_get_float16(payload2, 1e1, &ind);
+            values.battery_level = buffer_get_float16(payload2, 1e1, &ind);
             values.amp_hours = buffer_get_float32(payload2, 1e4, &ind);
             values.amp_hours_charged = buffer_get_float32(payload2, 1e4, &ind);
             values.watt_hours = buffer_get_float32(payload2, 1e4, &ind);
             values.watt_hours_charged = buffer_get_float32(payload2, 1e4, &ind);
             values.tachometer = buffer_get_int32(payload2, &ind);
             values.tachometer_abs = buffer_get_int32(payload2, &ind);
+            values.pid_pos = buffer_get_float32(payload2, 1e4, &ind);
             values.fault_code = (mc_fault_code)payload2[ind++];
+            values.vesc_id = (uint8_t)payload2[ind++];
+            values.vesc_num = (uint8_t)payload2[ind++];
+            values.watt_left = buffer_get_float32(payload2, 1e4, &ind);
             
             [self resetPacket];
             return values;
